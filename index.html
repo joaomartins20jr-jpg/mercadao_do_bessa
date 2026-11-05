@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Estoque - Mercado</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+        body { background: #f4f7f6; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { color: #2c3e50; text-align: center; margin-bottom: 30px; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }
+        input, select, button { padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; width: 100%; }
+        button { background: #3498db; color: white; border: none; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        button:hover { background: #2980b9; }
+        button.danger { background: #e74c3c; }
+        button.danger:hover { background: #c0392b; }
+        button.secondary { background: #95a5a6; }
+        button.secondary:hover { background: #7f8c8d; }
+        .actions { display: flex; gap: 5px; }
+        .actions button { padding: 5px 10px; font-size: 12px; width: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
+        th { background: #f8f9fa; font-weight: 600; color: #555; }
+        tr:hover { background: #fafafa; }
+        .low-stock { color: #e74c3c; font-weight: bold; }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .badge-danger { background: #fadbd8; color: #c0392b; }
+        .filters { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; align-items: center; }
+        .filters input, .filters select { width: auto; flex: 1; min-width: 150px; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🛒 Controle de Estoque</h1>
+
+    <!-- ALERTA DE ESTOQUE BAIXO -->
+    <div id="alert-box" class="card hidden" style="background: #fadbd8; border-left: 5px solid #e74c3c;">
+        <strong style="color: #c0392b;">⚠️ Atenção:</strong> Existem produtos com estoque baixo (≤ 5 unidades). Verifique a lista abaixo.
+    </div>
+
+    <!-- FORMULÁRIO DE CADASTRO/EDIÇÃO -->
+    <div class="card">
+        <h3 id="form-title">Novo Produto</h3>
+        <form id="product-form">
+            <input type="hidden" id="product-id">
+            <div class="form-grid">
+                <input type="text" id="nome" placeholder="Nome do produto *" required>
+                <input type="text" id="categoria" placeholder="Categoria">
+                <input type="text" id="marca" placeholder="Marca">
+                <input type="text" id="modelo" placeholder="Modelo">
+                <input type="text" id="codigo" placeholder="Código do produto" required>
+                <input type="number" id="quantidade" placeholder="Qtd. em estoque" min="0" required>
+                <input type="number" id="preco_custo" placeholder="Preço de custo (R$)" step="0.01" min="0">
+                <input type="number" id="preco_venda" placeholder="Preço de venda (R$)" step="0.01" min="0">
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button type="submit" id="btn-submit">Cadastrar</button>
+                <button type="button" id="btn-cancel" class="secondary hidden" onclick="resetForm()">Cancelar Edição</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- LISTAGEM E FILTROS -->
+    <div class="card">
+        <div class="filters">
+            <input type="text" id="search" placeholder="🔍 Buscar por nome ou código..." oninput="renderTable()">
+            <select id="filter-category" onchange="renderTable()">
+                <option value="">Todas as categorias</option>
+            </select>
+            <select id="filter-stock" onchange="renderTable()">
+                <option value="">Todo o estoque</option>
+                <option value="low">Estoque Baixo (≤ 5)</option>
+            </select>
+        </div>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Nome</th>
+                        <th>Categoria</th>
+                        <th>Marca/Modelo</th>
+                        <th>Qtd</th>
+                        <th>Custo</th>
+                        <th>Venda</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="product-list"></tbody>
+            </table>
+        </div>
+        <p id="empty-msg" class="hidden" style="text-align: center; color: #999; padding: 20px;">Nenhum produto encontrado.</p>
+    </div>
+</div>
+
+<script>
+    // ============================================
+    // 1. CONFIGURAÇÃO DO SUPABASE
+    // ============================================
+    // SUBSTITUA PELOS SEUS DADOS (Project Settings > API)
+    const SUPABASE_URL = 'https://pqzkxnmcmxqconzivtmq.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_kag_sHR7ZnDqmfeGWrOzAA_I1JafQi2';
+
+    // Nunca use a chave service_role aqui no frontend!
+    // Ela ignora o RLS e expõe todos os dados.
+
+    const { createClient } = supabase;
+    const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // ============================================
+    // 2. ESTADO E FUNÇÕES AUXILIARES
+    // ============================================
+    let products = [];
+
+    async function fetchProducts() {
+        const { data, error } = await _supabase
+            .from('produtos')
+            .select('*')
+            .order('nome', { ascending: true });
+
+        if (error) {
+            console.error('Erro ao buscar:', error);
+            alert('Erro ao carregar produtos. Verifique o console.');
+            return;
+        }
+        products = data || [];
+        updateCategoryFilter();
+        renderTable();
+        checkLowStockAlert();
+    }
+
+    function updateCategoryFilter() {
+        const select = document.getElementById('filter-category');
+        const cats = [...new Set(products.map(p => p.categoria).filter(c => c))];
+        select.innerHTML = '<option value="">Todas as categorias</option>' +
+            cats.map(c => `<option value="${c}">${c}</option>`).join('');
+    }
+
+    function checkLowStockAlert() {
+        const low = products.some(p => p.quantidade <= 5);
+        document.getElementById('alert-box').classList.toggle('hidden', !low);
+    }
+
+    function renderTable() {
+        const search = document.getElementById('search').value.toLowerCase();
+        const catFilter = document.getElementById('filter-category').value;
+        const stockFilter = document.getElementById('filter-stock').value;
+        const tbody = document.getElementById('product-list');
+        const emptyMsg = document.getElementById('empty-msg');
+
+        let filtered = products.filter(p => {
+            const matchSearch = p.nome.toLowerCase().includes(search) || 
+                                (p.codigo && p.codigo.toLowerCase().includes(search));
+            const matchCat = !catFilter || p.categoria === catFilter;
+            const matchStock = !stockFilter || (stockFilter === 'low' && p.quantidade <= 5);
+            return matchSearch && matchCat && matchStock;
+        });
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = '';
+            emptyMsg.classList.remove('hidden');
+            return;
+        }
+        emptyMsg.classList.add('hidden');
+
+        tbody.innerHTML = filtered.map(p => {
+            const isLow = p.quantidade <= 5;
+            return `
+                <tr>
+                    <td>${p.codigo || '-'}</td>
+                    <td>${p.nome}</td>
+                    <td>${p.categoria || '-'}</td>
+                    <td>${(p.marca || '') + (p.modelo ? ' / ' + p.modelo : '') || '-'}</td>
+                    <td class="${isLow ? 'low-stock' : ''}">
+                        ${p.quantidade} ${isLow ? '⚠️' : ''}
+                    </td>
+                    <td>R$ ${(p.preco_custo || 0).toFixed(2)}</td>
+                    <td>R$ ${(p.preco_venda || 0).toFixed(2)}</td>
+                    <td class="actions">
+                        <button onclick="editProduct(${p.id})" style="background: #f39c12;">Editar</button>
+                        <button class="danger" onclick="deleteProduct(${p.id})">Excluir</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // ============================================
+    // 3. CRUD (CREATE, UPDATE, DELETE)
+    // ============================================
+    document.getElementById('product-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('product-id').value;
+        const payload = {
+            nome: document.getElementById('nome').value.trim(),
+            categoria: document.getElementById('categoria').value.trim(),
+            marca: document.getElementById('marca').value.trim(),
+            modelo: document.getElementById('modelo').value.trim(),
+            codigo: document.getElementById('codigo').value.trim(),
+            quantidade: parseInt(document.getElementById('quantidade').value) || 0,
+            preco_custo: parseFloat(document.getElementById('preco_custo').value) || 0,
+            preco_venda: parseFloat(document.getElementById('preco_venda').value) || 0
+        };
+
+        if (!payload.nome || !payload.codigo) {
+            alert('Nome e Código são obrigatórios.');
+            return;
+        }
+
+        let error;
+        if (id) {
+            // UPDATE
+            const { error: err } = await _supabase.from('produtos').update(payload).eq('id', id);
+            error = err;
+        } else {
+            // CREATE
+            const { error: err } = await _supabase.from('produtos').insert([payload]);
+            error = err;
+        }
+
+        if (error) {
+            console.error(error);
+            alert('Erro ao salvar: ' + error.message);
+        } else {
+            resetForm();
+            await fetchProducts();
+        }
+    });
+
+    async function editProduct(id) {
+        const p = products.find(item => item.id === id);
+        if (!p) return;
+        document.getElementById('product-id').value = p.id;
+        document.getElementById('nome').value = p.nome || '';
+        document.getElementById('categoria').value = p.categoria || '';
+        document.getElementById('marca').value = p.marca || '';
+        document.getElementById('modelo').value = p.modelo || '';
+        document.getElementById('codigo').value = p.codigo || '';
+        document.getElementById('quantidade').value = p.quantidade || 0;
+        document.getElementById('preco_custo').value = p.preco_custo || 0;
+        document.getElementById('preco_venda').value = p.preco_venda || 0;
+        document.getElementById('form-title').textContent = 'Editar Produto';
+        document.getElementById('btn-submit').textContent = 'Salvar Alterações';
+        document.getElementById('btn-cancel').classList.remove('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    async function deleteProduct(id) {
+        if (!confirm('Tem certeza que deseja excluir este produto?')) return;
+        const { error } = await _supabase.from('produtos').delete().eq('id', id);
+        if (error) {
+            alert('Erro ao excluir: ' + error.message);
+        } else {
+            await fetchProducts();
+        }
+    }
+
+    function resetForm() {
+        document.getElementById('product-form').reset();
+        document.getElementById('product-id').value = '';
+        document.getElementById('form-title').textContent = 'Novo Produto';
+        document.getElementById('btn-submit').textContent = 'Cadastrar';
+        document.getElementById('btn-cancel').classList.add('hidden');
+    }
+
+    // Inicialização
+    fetchProducts();
+</script>
+</body>
+</html>
