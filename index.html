@@ -3,69 +3,424 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mercadão do Bessa - Mercado</title>
+    <title>Mercadão do Bessa - Gestão de Estoque</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
-        body { background: #f4f7f6; margin: 0; padding: 20px; color: #333; }
+        :root {
+            --primary: #10b981;
+            --primary-dark: #059669;
+            --primary-light: #d1fae5;
+            --danger: #ef4444;
+            --danger-dark: #dc2626;
+            --warning: #f59e0b;
+            --info: #3b82f6;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.07);
+            --shadow-lg: 0 10px 30px rgba(0,0,0,0.1);
+            --radius: 14px;
+        }
+
+        * { box-sizing: border-box; font-family: 'Inter', system-ui, -apple-system, sans-serif; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            background-image:
+                radial-gradient(circle at 0% 0%, rgba(16, 185, 129, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 100% 0%, rgba(59, 130, 246, 0.06) 0%, transparent 40%);
+            margin: 0;
+            padding: 24px 16px;
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.5;
+        }
+
         .container { max-width: 1200px; margin: 0 auto; }
-        h1 { color: #2c3e50; text-align: center; margin-bottom: 30px; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }
-        input, select, button { padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; width: 100%; }
-        button { background: #3498db; color: white; border: none; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        button:hover { background: #2980b9; }
-        button.danger { background: #e74c3c; }
-        button.danger:hover { background: #c0392b; }
-        button.secondary { background: #95a5a6; }
-        button.secondary:hover { background: #7f8c8d; }
-        .actions { display: flex; gap: 5px; }
-        .actions button { padding: 5px 10px; font-size: 12px; width: auto; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
-        th { background: #f8f9fa; font-weight: 600; color: #555; }
-        tr:hover { background: #fafafa; }
-        .low-stock { color: #e74c3c; font-weight: bold; }
-        .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
-        .badge-danger { background: #fadbd8; color: #c0392b; }
-        .filters { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; align-items: center; }
-        .filters input, .filters select { width: auto; flex: 1; min-width: 150px; }
-        .hidden { display: none; }
+
+        /* HEADER */
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+            padding: 8px 0;
+        }
+        .header h1 {
+            font-size: clamp(1.75rem, 4vw, 2.5rem);
+            font-weight: 800;
+            color: var(--text);
+            letter-spacing: -0.02em;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .header h1 .emoji {
+            font-size: 1.1em;
+            filter: drop-shadow(0 4px 6px rgba(16, 185, 129, 0.3));
+        }
+        .header p {
+            color: var(--text-light);
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+
+        /* CARDS */
+        .card {
+            background: var(--card);
+            padding: 24px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-md);
+            border: 1px solid rgba(226, 232, 240, 0.6);
+            margin-bottom: 20px;
+            transition: box-shadow 0.2s;
+        }
+        .card:hover { box-shadow: var(--shadow-lg); }
+
+        .card-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card-title .icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: var(--primary-light);
+            color: var(--primary-dark);
+            font-size: 1rem;
+        }
+
+        /* ALERTA */
+        #alert-box {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 1px solid #fbbf24;
+            border-left: 5px solid var(--warning);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: pulse 2.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.005); }
+        }
+        #alert-box .alert-icon {
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+        #alert-box strong { color: #92400e; }
+        #alert-box span { color: #78350f; font-weight: 500; }
+
+        /* FORM */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 14px;
+            margin-bottom: 18px;
+        }
+
+        .input-group { position: relative; }
+        .input-group label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-light);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        input, select {
+            padding: 11px 14px;
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            font-size: 0.9rem;
+            width: 100%;
+            color: var(--text);
+            background: #f8fafc;
+            transition: all 0.15s ease;
+            font-family: inherit;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: #fff;
+            box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.12);
+        }
+        input::placeholder { color: #94a3b8; }
+
+        /* BOTÕES */
+        button {
+            padding: 11px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            font-family: inherit;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+        }
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
+        }
+        button:active { transform: translateY(0); }
+
+        button.danger {
+            background: linear-gradient(135deg, var(--danger) 0%, var(--danger-dark) 100%);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+        }
+        button.danger:hover { box-shadow: 0 6px 16px rgba(239, 68, 68, 0.35); }
+
+        button.secondary {
+            background: #f1f5f9;
+            color: var(--text-light);
+            box-shadow: none;
+        }
+        button.secondary:hover {
+            background: #e2e8f0;
+            color: var(--text);
+            box-shadow: none;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        /* FILTROS */
+        .filters {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .filters input { flex: 2; min-width: 200px; }
+        .filters select { flex: 1; min-width: 150px; }
+
+        /* TABELA */
+        .table-wrap {
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+        th {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            font-weight: 700;
+            color: var(--text-light);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 14px 12px;
+            text-align: left;
+            border-bottom: 2px solid var(--border);
+            white-space: nowrap;
+        }
+        td {
+            padding: 14px 12px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text);
+        }
+        tbody tr {
+            transition: background 0.15s;
+        }
+        tbody tr:hover { background: #f8fafc; }
+        tbody tr:last-child td { border-bottom: none; }
+
+        .low-stock {
+            color: var(--danger-dark);
+            font-weight: 700;
+            background: #fee2e2;
+            padding: 4px 10px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.8rem;
+        }
+        .stock-ok {
+            color: var(--primary-dark);
+            font-weight: 600;
+            background: var(--primary-light);
+            padding: 4px 10px;
+            border-radius: 8px;
+            display: inline-flex;
+            font-size: 0.8rem;
+        }
+
+        .actions { display: flex; gap: 6px; }
+        .actions button {
+            padding: 6px 12px;
+            font-size: 0.78rem;
+            width: auto;
+            border-radius: 8px;
+        }
+        .actions .edit-btn {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.25);
+        }
+        .actions .edit-btn:hover { box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35); }
+
+        /* EMPTY */
+        #empty-msg {
+            text-align: center;
+            color: var(--text-light);
+            padding: 48px 20px;
+            font-size: 0.95rem;
+        }
+        #empty-msg::before {
+            content: '📦';
+            display: block;
+            font-size: 3rem;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+
+        .hidden { display: none !important; }
+
+        /* BADGE NO HEADER */
+        .stats-bar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 16px;
+        }
+        .stat-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: white;
+            padding: 8px 14px;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-light);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+        }
+        .stat-pill strong { color: var(--text); }
+        .stat-pill .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--primary);
+        }
+        .stat-pill.warn .dot { background: var(--warning); }
+
+        /* RESPONSIVO */
+        @media (max-width: 640px) {
+            body { padding: 16px 12px; }
+            .card { padding: 18px; }
+            th, td { padding: 10px 8px; font-size: 0.8rem; }
+            .actions button { padding: 5px 8px; font-size: 0.72rem; }
+        }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>🛒 Mercadão Do Bessa</h1>
+    <!-- HEADER -->
+    <header class="header">
+        <h1>
+            <span class="emoji">🛒</span>
+            Mercadão do Bessa
+        </h1>
+        <p>Gestão de Estoque Inteligente</p>
+        <div class="stats-bar" id="stats-bar"></div>
+    </header>
 
     <!-- ALERTA DE ESTOQUE BAIXO -->
-    <div id="alert-box" class="card hidden" style="background: #fadbd8; border-left: 5px solid #e74c3c;">
-        <strong style="color: #c0392b;">⚠️ Atenção:</strong> Existem produtos com estoque baixo (≤ 5 unidades). Verifique a lista abaixo.
+    <div id="alert-box" class="card hidden">
+        <span class="alert-icon">⚠️</span>
+        <div>
+            <strong>Atenção!</strong>
+            <span>Existem produtos com estoque baixo (≤ 5 unidades). Verifique a lista abaixo.</span>
+        </div>
     </div>
 
-    <!-- FORMULÁRIO DE CADASTRO/EDIÇÃO -->
+    <!-- FORMULÁRIO -->
     <div class="card">
-        <h3 id="form-title">Novo Produto</h3>
+        <div class="card-title">
+            <span class="icon">➕</span>
+            <span id="form-title">Cadastrar Novo Produto</span>
+        </div>
         <form id="product-form">
             <input type="hidden" id="product-id">
             <div class="form-grid">
-                <input type="text" id="nome" placeholder="Nome do produto *" required>
-                <input type="text" id="categoria" placeholder="Categoria">
-                <input type="text" id="marca" placeholder="Marca">
-                <input type="text" id="modelo" placeholder="Modelo">
-                <input type="text" id="codigo" placeholder="Código do produto" required>
-                <input type="number" id="quantidade" placeholder="Qtd. em estoque" min="0" required>
-                <input type="number" id="preco_custo" placeholder="Preço de custo (R$)" step="0.01" min="0">
-                <input type="number" id="preco_venda" placeholder="Preço de venda (R$)" step="0.01" min="0">
+                <div class="input-group">
+                    <label>Nome *</label>
+                    <input type="text" id="nome" placeholder="Ex: Arroz Branco 5kg" required>
+                </div>
+                <div class="input-group">
+                    <label>Categoria</label>
+                    <input type="text" id="categoria" placeholder="Ex: Alimentos">
+                </div>
+                <div class="input-group">
+                    <label>Marca</label>
+                    <input type="text" id="marca" placeholder="Ex: Tio João">
+                </div>
+                <div class="input-group">
+                    <label>Modelo</label>
+                    <input type="text" id="modelo" placeholder="Ex: Tipo 1">
+                </div>
+                <div class="input-group">
+                    <label>Código *</label>
+                    <input type="text" id="codigo" placeholder="Ex: ARR001" required>
+                </div>
+                <div class="input-group">
+                    <label>Quantidade</label>
+                    <input type="number" id="quantidade" placeholder="0" min="0" required>
+                </div>
+                <div class="input-group">
+                    <label>Preço Custo (R$)</label>
+                    <input type="number" id="preco_custo" placeholder="0,00" step="0.01" min="0">
+                </div>
+                <div class="input-group">
+                    <label>Preço Venda (R$)</label>
+                    <input type="number" id="preco_venda" placeholder="0,00" step="0.01" min="0">
+                </div>
             </div>
-            <div style="display: flex; gap: 10px;">
-                <button type="submit" id="btn-submit">Cadastrar</button>
-                <button type="button" id="btn-cancel" class="secondary hidden" onclick="resetForm()">Cancelar Edição</button>
+            <div class="form-actions">
+                <button type="submit" id="btn-submit">💾 Cadastrar Produto</button>
+                <button type="button" id="btn-cancel" class="secondary hidden" onclick="resetForm()">✖ Cancelar</button>
             </div>
         </form>
     </div>
 
-    <!-- LISTAGEM E FILTROS -->
+    <!-- LISTAGEM -->
     <div class="card">
+        <div class="card-title">
+            <span class="icon">📋</span>
+            <span>Produtos Cadastrados</span>
+        </div>
         <div class="filters">
             <input type="text" id="search" placeholder="🔍 Buscar por nome ou código..." oninput="renderTable()">
             <select id="filter-category" onchange="renderTable()">
@@ -73,10 +428,10 @@
             </select>
             <select id="filter-stock" onchange="renderTable()">
                 <option value="">Todo o estoque</option>
-                <option value="low">Estoque Baixo (≤ 5)</option>
+                <option value="low">⚠️ Estoque Baixo (≤ 5)</option>
             </select>
         </div>
-        <div style="overflow-x: auto;">
+        <div class="table-wrap">
             <table>
                 <thead>
                     <tr>
@@ -93,29 +448,25 @@
                 <tbody id="product-list"></tbody>
             </table>
         </div>
-        <p id="empty-msg" class="hidden" style="text-align: center; color: #999; padding: 20px;">Nenhum produto encontrado.</p>
+        <p id="empty-msg" class="hidden">Nenhum produto encontrado.</p>
     </div>
 </div>
 
 <script>
     // ============================================
-    // 1. CONFIGURAÇÃO DO SUPABASE
+    // CONFIGURAÇÃO DO SUPABASE
     // ============================================
-    // SUBSTITUA PELOS SEUS DADOS (Project Settings > API)
     const SUPABASE_URL = 'https://pqzkxnmcmxqconzivtmq.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_kag_sHR7ZnDqmfeGWrOzAA_I1JafQi2';
-
-    // Nunca use a chave service_role aqui no frontend!
-    // Ela ignora o RLS e expõe todos os dados.
 
     const { createClient } = supabase;
     const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // ============================================
-    // 2. ESTADO E FUNÇÕES AUXILIARES
-    // ============================================
     let products = [];
 
+    // ============================================
+    // BUSCAR PRODUTOS
+    // ============================================
     async function fetchProducts() {
         const { data, error } = await _supabase
             .from('produtos')
@@ -129,15 +480,30 @@
         }
         products = data || [];
         updateCategoryFilter();
+        updateStats();
         renderTable();
         checkLowStockAlert();
     }
 
+    function updateStats() {
+        const total = products.length;
+        const low = products.filter(p => p.quantidade <= 5).length;
+        const totalValue = products.reduce((sum, p) => sum + ((p.preco_venda || 0) * (p.quantidade || 0)), 0);
+
+        document.getElementById('stats-bar').innerHTML = `
+            <span class="stat-pill"><span class="dot"></span><strong>${total}</strong> produtos</span>
+            <span class="stat-pill warn"><span class="dot"></span><strong>${low}</strong> com estoque baixo</span>
+            <span class="stat-pill"><span class="dot" style="background:#3b82f6;"></span>Valor: <strong>R$ ${totalValue.toFixed(2)}</strong></span>
+        `;
+    }
+
     function updateCategoryFilter() {
         const select = document.getElementById('filter-category');
+        const current = select.value;
         const cats = [...new Set(products.map(p => p.categoria).filter(c => c))];
         select.innerHTML = '<option value="">Todas as categorias</option>' +
             cats.map(c => `<option value="${c}">${c}</option>`).join('');
+        if (current && cats.includes(current)) select.value = current;
     }
 
     function checkLowStockAlert() {
@@ -145,6 +511,9 @@
         document.getElementById('alert-box').classList.toggle('hidden', !low);
     }
 
+    // ============================================
+    // RENDERIZAR TABELA
+    // ============================================
     function renderTable() {
         const search = document.getElementById('search').value.toLowerCase();
         const catFilter = document.getElementById('filter-category').value;
@@ -153,7 +522,7 @@
         const emptyMsg = document.getElementById('empty-msg');
 
         let filtered = products.filter(p => {
-            const matchSearch = p.nome.toLowerCase().includes(search) || 
+            const matchSearch = p.nome.toLowerCase().includes(search) ||
                                 (p.codigo && p.codigo.toLowerCase().includes(search));
             const matchCat = !catFilter || p.categoria === catFilter;
             const matchStock = !stockFilter || (stockFilter === 'low' && p.quantidade <= 5);
@@ -171,18 +540,19 @@
             const isLow = p.quantidade <= 5;
             return `
                 <tr>
-                    <td>${p.codigo || '-'}</td>
+                    <td><strong>${p.codigo || '-'}</strong></td>
                     <td>${p.nome}</td>
-                    <td>${p.categoria || '-'}</td>
-                    <td>${(p.marca || '') + (p.modelo ? ' / ' + p.modelo : '') || '-'}</td>
-                    <td class="${isLow ? 'low-stock' : ''}">
-                        ${p.quantidade} ${isLow ? '⚠️' : ''}
+                    <td>${p.categoria || '<span style="color:#94a3b8;">—</span>'}</td>
+                    <td>${(p.marca || '') + (p.modelo ? ' / ' + p.modelo : '') || '<span style="color:#94a3b8;">—</span>'}</td>
+                    <td>${isLow
+                        ? `<span class="low-stock">⚠️ ${p.quantidade}</span>`
+                        : `<span class="stock-ok">${p.quantidade}</span>`}
                     </td>
                     <td>R$ ${(p.preco_custo || 0).toFixed(2)}</td>
-                    <td>R$ ${(p.preco_venda || 0).toFixed(2)}</td>
+                    <td><strong style="color:#059669;">R$ ${(p.preco_venda || 0).toFixed(2)}</strong></td>
                     <td class="actions">
-                        <button onclick="editProduct(${p.id})" style="background: #f39c12;">Editar</button>
-                        <button class="danger" onclick="deleteProduct(${p.id})">Excluir</button>
+                        <button class="edit-btn" onclick="editProduct(${p.id})">✏️ Editar</button>
+                        <button class="danger" onclick="deleteProduct(${p.id})">🗑️</button>
                     </td>
                 </tr>
             `;
@@ -190,7 +560,7 @@
     }
 
     // ============================================
-    // 3. CRUD (CREATE, UPDATE, DELETE)
+    // CRUD
     // ============================================
     document.getElementById('product-form').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -211,16 +581,22 @@
             return;
         }
 
+        const btn = document.getElementById('btn-submit');
+        const originalText = btn.textContent;
+        btn.textContent = '⏳ Salvando...';
+        btn.disabled = true;
+
         let error;
         if (id) {
-            // UPDATE
             const { error: err } = await _supabase.from('produtos').update(payload).eq('id', id);
             error = err;
         } else {
-            // CREATE
             const { error: err } = await _supabase.from('produtos').insert([payload]);
             error = err;
         }
+
+        btn.textContent = originalText;
+        btn.disabled = false;
 
         if (error) {
             console.error(error);
@@ -244,7 +620,7 @@
         document.getElementById('preco_custo').value = p.preco_custo || 0;
         document.getElementById('preco_venda').value = p.preco_venda || 0;
         document.getElementById('form-title').textContent = 'Editar Produto';
-        document.getElementById('btn-submit').textContent = 'Salvar Alterações';
+        document.getElementById('btn-submit').textContent = '💾 Salvar Alterações';
         document.getElementById('btn-cancel').classList.remove('hidden');
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -262,12 +638,12 @@
     function resetForm() {
         document.getElementById('product-form').reset();
         document.getElementById('product-id').value = '';
-        document.getElementById('form-title').textContent = 'Novo Produto';
-        document.getElementById('btn-submit').textContent = 'Cadastrar';
+        document.getElementById('form-title').textContent = 'Cadastrar Novo Produto';
+        document.getElementById('btn-submit').textContent = '💾 Cadastrar Produto';
         document.getElementById('btn-cancel').classList.add('hidden');
     }
 
-    // Inicialização
+    // INICIAR
     fetchProducts();
 </script>
 </body>
